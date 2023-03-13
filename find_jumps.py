@@ -28,6 +28,10 @@ class Label:
     def __repr__(self) -> str:
         return f"Label({self.id},{self.seq},{self.nums_left})"
 
+    @classmethod
+    def reset_id(cls):
+        cls._id_gen = itertools.count()
+
 
 def extend(label: Label, nums: typing.List[int]) -> typing.Optional[Label]:
     seq = [s for s in label.seq]
@@ -166,39 +170,46 @@ def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
         Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
 
     """
-    log.info(f"planet numbers: {planet_nums}")
-    log.info(f"sequence length {jump_length}")
-    log.info(f"num_seqs: {num_seqs}")
-
     labels = build_initial_labels(planet_nums)
     h = []
     for label in labels:
         heapq.heappush(h, label)
 
     count = 0
+    built_seqs = []
     while h:
         label = heapq.heappop(h)
         for ext in extensions(label):
             if len(ext.seq) == jump_length:
-                print(ext.id, list(reversed(ext.seq)))
-                count += 1
-                if count >= num_seqs:
-                    log.info("stopping")
-                    return
+                seq = list(reversed(ext.seq))
+                if seq not in built_seqs:
+                    built_seqs.append(seq)
+                    print(ext.id, seq)
+                    count += 1
+                    if count >= num_seqs:
+                        log.info("stopping")
+                        return
             else:
                 heapq.heappush(h, ext)
-                if len(ext.seq) == jump_length - 1:
-                    print(f"adding {ext}")
 
 
 def main():
     """Initialize logging and run the script."""
     logging.basicConfig(format='%(asctime)s %(levelname)s--: %(message)s',
                         level=logging.DEBUG)
-    # run([8, 7, 7, 4, 8, 1, 3, 8], 6)
-    # run([4, 5, 1, 2, 7, 3, 3, 6], 6, 4)
-    # run([4, 5, 1, 2, 7, 3, 3, 6], 7, 3)
-    run([4, 5, 1, 2, 7, 3, 3, 6], 8, 3)
+
+    # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]
+    planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]
+    lengths_and_counts = [
+        (6, 4),
+        (7, 3),
+        (8, 2),
+        (9, 1),
+    ]
+    for jump_length, num_seqs in lengths_and_counts:
+        log.info(f"trying to get {num_seqs} seqs of length {jump_length}")
+        run(planet_nums, jump_length, num_seqs)
+        Label.reset_id()
 
 
 if __name__ == '__main__':
