@@ -13,15 +13,17 @@ class Node(typing.NamedTuple):
     num: int
 
 
-def get_digits(x: int, y: int) -> typing.Generator[int, None, None]:
+def get_digits(
+        x: int, y: int,
+) -> typing.Generator[typing.Tuple[int, str], None, None]:
     """Return ones digits of x <> y where <> refers to +,-,*,/.
 
     Note that "-" applies only if x>y and "/" applies if y divides x.
     """
-    yield (x+y) % 10
-    yield (x*y) % 10
+    yield ((x+y) % 10, "add")
+    yield ((x*y) % 10, "mul")
     if x > y:
-        yield (x-y) % 10
+        yield ((x-y) % 10, "sub")
 
     # Division could end up being the hardest search for the following reason.
     # Say we know that y does not divide x. But by prefixing x with a digit
@@ -30,7 +32,7 @@ def get_digits(x: int, y: int) -> typing.Generator[int, None, None]:
     # now check for y dividing bax or xy dividing ba. The combinations start
     # increasing in this case.
     if x % y == 0:
-        yield (x // y) % 10
+        yield ((x // y) % 10, "div")
 
 
 def build_jump_graph(planet_nums: typing.List[int]) -> nx.DiGraph:
@@ -50,20 +52,20 @@ def build_jump_graph(planet_nums: typing.List[int]) -> nx.DiGraph:
     g = nx.DiGraph()
     built_edges = typing.DefaultDict(set)
     for x, y in itertools.permutations(planet_nums, 2):
-        for d in get_digits(x, y):
+        for d, opr in get_digits(x, y):
             if d not in planet_nums and d != 9:
                 continue
 
             if y not in built_edges[x]:
                 for node1 in nodes_by_num[x]:
                     for node2 in nodes_by_num[y]:
-                        g.add_edge(node1, node2)
+                        g.add_edge(node1, node2, opr=opr)
                 built_edges[x].add(y)
 
             if d not in built_edges[y]:
                 for node1 in nodes_by_num[y]:
                     for node2 in nodes_by_num[d]:
-                        g.add_edge(node1, node2)
+                        g.add_edge(node1, node2, opr=opr)
                 log.info(f"added edge {x} -> {y} -> {d}")
 
     return g
@@ -99,7 +101,8 @@ def run(planet_nums: typing.List[int], jump_length: int):
     for node in nodes:
         log.info(f"{node} predecessors:")
         for pred in list(g.predecessors(node)):
-            log.info(f"\t{pred}")
+            opr = g[pred][node]["opr"]
+            log.info(f"\t{pred} {opr}")
 
 
 def main():
