@@ -1,77 +1,116 @@
 #!/usr/bin/env python
 
+import heapq
 import itertools
 import logging
-import networkx as nx
+import operator
 import typing
 
 log = logging.getLogger(__name__)
 
 
-class Node(typing.NamedTuple):
-    id: int
-    num: int
+class Label:
+    _id_gen = itertools.count()
+
+    def __init__(self, seq: typing.List[int], nums_left: typing.List[int]):
+        self.id: int = next(self._id_gen)
+        self.seq: typing.List[int] = seq
+        self.nums_left: typing.List[int] = nums_left
+
+    def __lt__(self, other: 'Label') -> bool:
+        """This operator serves to prioritize label in a min-priority-queue."""
+        # Labels with longer sequences should be better.
+        if len(self.seq) != len(other.seq):
+            return len(self.seq) > len(other.seq)
+
+        return self.id < other.id
+
+    def __repr__(self) -> str:
+        return f"Label({self.id},{self.seq},{self.nums_left})"
 
 
-def get_digits(
-        x: int, y: int,
-) -> typing.Generator[typing.Tuple[int, str], None, None]:
-    """Return ones digits of x <> y where <> refers to +,-,*,/.
+def extend(label: Label, nums: typing.List[int]) -> typing.Optional[Label]:
+    seq = [s for s in label.seq]
+    left = [l for l in label.nums_left]
 
-    Note that "-" applies only if x>y and "/" applies if y divides x.
-    """
-    yield ((x+y) % 10, "add")
-    yield ((x*y) % 10, "mul")
-    if x > y:
-        yield ((x-y) % 10, "sub")
+    for num in nums:
+        seq.append(num)
 
-    # Division could end up being the hardest search for the following reason.
-    # Say we know that y does not divide x. But by prefixing x with a digit
-    # a, y could divide the 2-digit number ax and we cannot know this apriori.
-    # Similarly, say we prefix x with 2 more digits and make it "bax". We could
-    # now check for y dividing bax or xy dividing ba. The combinations start
-    # increasing in this case.
-    if x % y == 0:
-        yield ((x // y) % 10, "div")
+        # This exception handling ensures that we don't consider removing too
+        # many copies of a number as valid.
+        try:
+            left.remove(num)
+        except ValueError:
+            return None
+
+    return Label(seq=seq, nums_left=left)
 
 
-def build_jump_graph(planet_nums: typing.List[int]) -> nx.DiGraph:
-    # Create individual Node objects for each number.
-    nodes: typing.List[Node] = []
-    nodes_by_num = typing.DefaultDict(list)
-    for num in planet_nums:
-        node = Node(len(nodes), num)
-        nodes.append(node)
-        nodes_by_num[num].append(node)
+def can_reach(p: int, q: int, r: int) -> bool:
+    if (p+q) % 10 == r or (p*q) % 10 == r:
+        return True
 
-    node = Node(len(nodes), 9)
-    nodes.append(node)
-    nodes_by_num[9].append(node)
+    if p > q:
+        if ((p-q) % 10) == r:
+            return True
 
-    # Build jump graph with only single digit numbers.
-    g = nx.DiGraph()
-    built_edges = typing.DefaultDict(set)
-    for x, y in itertools.permutations(planet_nums, 2):
-        for d, opr in get_digits(x, y):
-            if d not in planet_nums and d != 9:
-                continue
+        if p % q == 0 and p // q == r:
+            return True
 
-            if y not in built_edges[x]:
-                for node1 in nodes_by_num[x]:
-                    for node2 in nodes_by_num[y]:
-                        g.add_edge(node1, node2, opr=opr)
-                built_edges[x].add(y)
-
-            if d not in built_edges[y]:
-                for node1 in nodes_by_num[y]:
-                    for node2 in nodes_by_num[d]:
-                        g.add_edge(node1, node2, opr=opr)
-                log.info(f"added edge {x} -> {y} -> {d}")
-
-    return g
+    return False
 
 
-def run(planet_nums: typing.List[int], jump_length: int):
+def extensions(label: Label) -> typing.Generator[Label, None, None]:
+    oprs = [operator.add, operator.sub, operator.mul, operator.floordiv]
+    x = label.seq[-2]
+    y = label.seq[-1]
+
+    for opr in oprs:
+        z = opr(x, y)
+        if z <= 9:
+            if z in label.nums_left:
+                ext = extend(label, [z])
+                if ext:
+                    yield (ext)
+            continue
+
+        # Yes, there is a betteer way to do this with divs and mods. But
+        # I'm using this as a hack to get to finding jumps quickly.
+        digits = list(map(int, str(z)))
+
+        # Let's ignore (3 or more)-digit cases for now as they seem be be
+        # quite rare.
+        if len(digits) > 2:
+            continue
+
+        # Ensure that all digits of the multi-digit result are valid.
+        if any([d not in label.nums_left for d in digits]):
+            continue
+
+        a, b = digits
+
+        # For example, if we want to use 9+3 == 12, then, all digits 3,1,2
+        # should be valid. Further, as we did 9 <> 3 to get to 12, we
+        # should also check that 3 <> 2 == 1.
+        # Here, the label's sequence may look like [...,x,y] with x<>y == z and
+        # z is a 2-digit number ab. We want a<>b == y and (ab)<>y == x. The
+        # second condition is guaranteed by symmetry of (+,-) and (*,/). The
+        # first condition needs to be checked here.
+        if can_reach(a, b, y):
+            ext = extend(label, [b, a])
+            if ext:
+                yield (ext)
+
+
+def build_initial_labels(planet_nums: typing.List[int]) -> typing.List[Label]:
+    labels = []
+    first_label = Label(seq=[9], nums_left=planet_nums)
+    for num in set(planet_nums):
+        labels.append(extend(first_label, [num]))
+    return labels
+
+
+def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
     """
     Create a sequence of single-digit numbers with the following rules:
     - The first 2 elements of the sequence should be from `planet_nums`.
@@ -86,30 +125,80 @@ def run(planet_nums: typing.List[int], jump_length: int):
         selecting a continuous subsequence starting at a_m for 1 <= m < k
         partitining it into (a_m,...,a_n), (a_{n+1},...,a_k) and concatenating
         these 2 sub-sequences to create the multi-digit numbers b and c.
+
+    Examples
+    --------
+    input: [4,5,1,2,7,3,3,6]
+    sequences:
+        [4,1,3,3,6,9] (4+1=3, 1*3=3, 3+3=6, 3+6=9)
+        [4,3,1,2,3,9] (4-3=1, 3-1=2, 1+2=3, 12-3=9)
+        [3,3,1,4,5,9] (3/3=1, 3+1=4, 1+4=5, 4+5=9)
+
+        The 4,3,1,2,3,9 case is an interesting example.
+        It needs 1+2=3 and 12-3=9 to hold. How to capture this in a graph?
+        Say my graph has x -- (y) --> d if x<>y == d.
+        Then, the graph would have 1 --(+2)--> 3 and (12) --(-3)--> 9.
+        What should the graph store?
+
+        Let's try the simple approach in which nodes are digits, edges are
+        operators (+,-,*,/,==).
+
+        1 -(+)-> 2 --(==)--> 3
+        12 --(-)--> 3 --(==)--> 9
+
+        Nah, too complicated.
+
+        Say we go backwards from 9.
+        We need to find pairs like x,y such that
+            x-y == 9, x+y == 9, x*y == 9, x/y == 9, or
+            x == 9+y, x == 9-y, x == 9/y, x == 9*y.
+            If x has 2 digits (say ab), then there is the additional constraint
+            that a<>b == y.
+
+        Perhaps we don't need to build the graph at all.
+        Start with a DFS going backwards from 9, with edges just meaning that
+        we can get to a digit.
+
+    Valid sequence examples:
+        Label(15,[9, 3, 2, 1, 3, 4],[5, 7, 6])
+        Label(20,[9, 3, 3, 1, 4, 5],[2, 7, 6])
+        Label(27,[9, 4, 3, 1, 2, 3],[5, 7, 6])
+        Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
+
     """
     log.info(f"planet numbers: {planet_nums}")
     log.info(f"sequence length {jump_length}")
+    log.info(f"num_seqs: {num_seqs}")
 
-    g = build_jump_graph(planet_nums)
+    labels = build_initial_labels(planet_nums)
+    h = []
+    for label in labels:
+        heapq.heappush(h, label)
 
-    nodes = list(g.nodes)
-
-    log.info("nodes:")
-    for node in nodes:
-        log.info(f"\t{node}")
-
-    for node in nodes:
-        log.info(f"{node} predecessors:")
-        for pred in list(g.predecessors(node)):
-            opr = g[pred][node]["opr"]
-            log.info(f"\t{pred} {opr}")
+    count = 0
+    while h:
+        label = heapq.heappop(h)
+        for ext in extensions(label):
+            if len(ext.seq) == jump_length:
+                print(ext.id, list(reversed(ext.seq)))
+                count += 1
+                if count >= num_seqs:
+                    log.info("stopping")
+                    return
+            else:
+                heapq.heappush(h, ext)
+                if len(ext.seq) == jump_length - 1:
+                    print(f"adding {ext}")
 
 
 def main():
     """Initialize logging and run the script."""
     logging.basicConfig(format='%(asctime)s %(levelname)s--: %(message)s',
                         level=logging.DEBUG)
-    run([8, 7, 7, 4, 8, 1, 3, 8], 6)
+    # run([8, 7, 7, 4, 8, 1, 3, 8], 6)
+    # run([4, 5, 1, 2, 7, 3, 3, 6], 6, 4)
+    # run([4, 5, 1, 2, 7, 3, 3, 6], 7, 3)
+    run([4, 5, 1, 2, 7, 3, 3, 6], 8, 3)
 
 
 if __name__ == '__main__':
