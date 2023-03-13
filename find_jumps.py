@@ -17,6 +17,13 @@ def get_digits(x: int, y: int) -> typing.Generator[int, None, None]:
     yield (x*y) % 10
     if x > y:
         yield (x-y) % 10
+
+    # Division could end up being the hardest search for the following reason.
+    # Say we know that y does not divide x. But by prefixing x with a digit
+    # a, y could divide the 2-digit number ax and we cannot know this apriori.
+    # Similarly, say we prefix x with 2 more digits and make it "bax". We could
+    # now check for y dividing bax or xy dividing ba. The combinations start
+    # increasing in this case.
     if x % y == 0:
         yield (x // y) % 10
 
@@ -45,8 +52,11 @@ def run(planet_nums: typing.List[int], jump_length: int):
     for x, y in itertools.permutations(planet_nums, 2):
         for d in get_digits(x, y):
             if d in planet_nums or d == 9:
-                g.add_edge(x, y)
-                g.add_edge(y, d)
+                if not g.has_edge(x, y):
+                    g.add_edge(x, y)
+                if not g.has_edge(y, d):
+                    g.add_edge(y, d)
+                    log.info(f"added edge {x} -> {y} -> {d}")
 
     nodes = list(g.nodes)
     log.info(f"nodes: {nodes}")
