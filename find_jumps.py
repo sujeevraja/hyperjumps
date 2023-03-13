@@ -209,6 +209,7 @@ def main():
     for jump_length, num_seqs in lengths_and_counts:
         log.info(f"trying to get {num_seqs} seqs of length {jump_length}")
         run(planet_nums, jump_length, num_seqs)
+        log.info(f"num labels: {next(Label._id_gen)}")
         Label.reset_id()
 
 
