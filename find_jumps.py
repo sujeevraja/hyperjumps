@@ -8,6 +8,11 @@ import typing
 log = logging.getLogger(__name__)
 
 
+class Node(typing.NamedTuple):
+    id: int
+    num: int
+
+
 def get_digits(x: int, y: int) -> typing.Generator[int, None, None]:
     """Return ones digits of x <> y where <> refers to +,-,*,/.
 
@@ -26,6 +31,42 @@ def get_digits(x: int, y: int) -> typing.Generator[int, None, None]:
     # increasing in this case.
     if x % y == 0:
         yield (x // y) % 10
+
+
+def build_jump_graph(planet_nums: typing.List[int]) -> nx.DiGraph:
+    # Create individual Node objects for each number.
+    nodes: typing.List[Node] = []
+    nodes_by_num = typing.DefaultDict(list)
+    for num in planet_nums:
+        node = Node(len(nodes), num)
+        nodes.append(node)
+        nodes_by_num[num].append(node)
+
+    node = Node(len(nodes), 9)
+    nodes.append(node)
+    nodes_by_num[9].append(node)
+
+    # Build jump graph with only single digit numbers.
+    g = nx.DiGraph()
+    built_edges = typing.DefaultDict(set)
+    for x, y in itertools.permutations(planet_nums, 2):
+        for d in get_digits(x, y):
+            if d not in planet_nums and d != 9:
+                continue
+
+            if y not in built_edges[x]:
+                for node1 in nodes_by_num[x]:
+                    for node2 in nodes_by_num[y]:
+                        g.add_edge(node1, node2)
+                built_edges[x].add(y)
+
+            if d not in built_edges[y]:
+                for node1 in nodes_by_num[y]:
+                    for node2 in nodes_by_num[d]:
+                        g.add_edge(node1, node2)
+                log.info(f"added edge {x} -> {y} -> {d}")
+
+    return g
 
 
 def run(planet_nums: typing.List[int], jump_length: int):
@@ -47,21 +88,18 @@ def run(planet_nums: typing.List[int], jump_length: int):
     log.info(f"planet numbers: {planet_nums}")
     log.info(f"sequence length {jump_length}")
 
-    # Build jump graph with only single-digit numbers.
-    g = nx.DiGraph()
-    for x, y in itertools.permutations(planet_nums, 2):
-        for d in get_digits(x, y):
-            if d in planet_nums or d == 9:
-                if not g.has_edge(x, y):
-                    g.add_edge(x, y)
-                if not g.has_edge(y, d):
-                    g.add_edge(y, d)
-                    log.info(f"added edge {x} -> {y} -> {d}")
+    g = build_jump_graph(planet_nums)
 
     nodes = list(g.nodes)
-    log.info(f"nodes: {nodes}")
+
+    log.info("nodes:")
     for node in nodes:
-        log.info(f"{node} predecessors: {list(g.predecessors(node))}")
+        log.info(f"\t{node}")
+
+    for node in nodes:
+        log.info(f"{node} predecessors:")
+        for pred in list(g.predecessors(node)):
+            log.info(f"\t{pred}")
 
 
 def main():
