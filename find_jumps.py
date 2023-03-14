@@ -202,9 +202,8 @@ def build_initial_string_labels(
 
 
 class StringAlgo:
-    def __init__(self, planet_nums: typing.List[int], jump_length: int):
+    def __init__(self, planet_nums: typing.List[int]):
         self.planet_nums: typing.List[int] = planet_nums
-        self.jump_length: int = jump_length
         self._unique_nums = set(planet_nums)
         self._num_counts = {}
         for n in planet_nums:
@@ -218,7 +217,7 @@ class StringAlgo:
         # cd such that c <> d == a and (cd - a == b) or (cd / a) == b.
         self._cache2 = {}
 
-    def run(self):
+    def run(self, jump_lengths: typing.List[int]):
         """
         Given a digit seq like (ab...), look for the following:
 
@@ -234,22 +233,24 @@ class StringAlgo:
         for label in build_initial_string_labels(self.planet_nums):
             heapq.heappush(h, label)
 
-        jumps = set()
+        jumps_by_length = {l: set() for l in jump_lengths}
         while h:
             sl = heapq.heappop(h)
             for ext in self._extend1(sl):
-                if len(ext.seq) == self.jump_length:
-                    jumps.add(ext.seq)
-                else:
-                    heapq.heappush(h, ext)
+                if len(ext.seq) in jumps_by_length:
+                    jumps_by_length[len(ext.seq)].add(ext.seq)
+                heapq.heappush(h, ext)
             for ext in self._extend2(sl):
-                if len(ext.seq) == self.jump_length:
-                    jumps.add(ext.seq)
-                else:
-                    heapq.heappush(h, ext)
+                if len(ext.seq) in jumps_by_length:
+                    jumps_by_length[len(ext.seq)].add(ext.seq)
+                heapq.heappush(h, ext)
 
-        for jump in jumps:
-            log.info(jump)
+        for length, jumps in jumps_by_length.items():
+            log.info(f"jumps of length {length}")
+            for jump in jumps:
+                log.info(f"\t{jump}")
+
+        log.info(f"num labels: {next(StringLabel._id_gen)}")
 
     def _extend1(self, sl: StringLabel) -> typing.Generator[StringLabel, None, None]:
         """
@@ -319,7 +320,7 @@ class StringAlgo:
         self._cache2[ab] = candidates
 
 
-def run(planet_nums: typing.List[int], jump_length: int):
+def run(planet_nums: typing.List[int], jump_lengths: typing.List[int]):
     """
     Create a sequence of single-digit numbers with the following rules:
     - The first 2 elements of the sequence should be from `planet_nums`.
@@ -377,25 +378,19 @@ def run(planet_nums: typing.List[int], jump_length: int):
         Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
     """
     # algo1(planet_nums, jump_length)
-    StringAlgo(planet_nums, jump_length).run()
+    StringAlgo(planet_nums).run(jump_lengths)
 
 
 def main():
     """Initialize logging and run the script."""
     logging.basicConfig(format='%(asctime)s %(levelname)s--: %(message)s',
                         level=logging.DEBUG)
-
-    # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]  # solved by StringAlgo
-    # planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]  # solved by StringAlgo
-    # planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]  # solved by StringAlgo
-    planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]  # solved by StringAlgo
-
-    lengths_and_counts = [6, 7, 8, 9]
-    for jump_length in lengths_and_counts:
-        log.info(f"trying to get jumps of length {jump_length}")
-        run(planet_nums, jump_length)
-        log.info(f"num labels: {next(StringLabel._id_gen)}")
-        StringLabel.reset_id()
+    # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]
+    # planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]
+    # planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]
+    planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]
+    jump_lengths = [6, 7, 8, 9]
+    run(planet_nums, jump_lengths)
 
 
 if __name__ == '__main__':
