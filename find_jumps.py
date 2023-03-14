@@ -234,12 +234,22 @@ class StringAlgo:
         for label in build_initial_string_labels(self.planet_nums):
             heapq.heappush(h, label)
 
+        jumps = set()
         while h:
             sl = heapq.heappop(h)
             for ext in self._extend1(sl):
-                heapq.heappush(h, ext)
+                if len(ext.seq) == self.jump_length:
+                    jumps.add(ext.seq)
+                else:
+                    heapq.heappush(h, ext)
             for ext in self._extend2(sl):
-                heapq.heappush(h, ext)
+                if len(ext.seq) == self.jump_length:
+                    jumps.add(ext.seq)
+                else:
+                    heapq.heappush(h, ext)
+
+        for jump in jumps:
+            log.info(jump)
 
     def _extend1(self, sl: StringLabel) -> typing.Generator[StringLabel, None, None]:
         """
@@ -309,7 +319,7 @@ class StringAlgo:
         self._cache2[ab] = candidates
 
 
-def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
+def run(planet_nums: typing.List[int], jump_length: int):
     """
     Create a sequence of single-digit numbers with the following rules:
     - The first 2 elements of the sequence should be from `planet_nums`.
@@ -375,19 +385,16 @@ def main():
     logging.basicConfig(format='%(asctime)s %(levelname)s--: %(message)s',
                         level=logging.DEBUG)
 
-    # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]
-    planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]
-    lengths_and_counts = [
-        (6, 4),
-        (7, 3),
-        (8, 2),
-        (9, 1),
-    ]
-    for jump_length, num_seqs in lengths_and_counts:
-        log.info(f"trying to get {num_seqs} seqs of length {jump_length}")
-        run(planet_nums, jump_length, num_seqs)
-        log.info(f"num labels: {next(Label._id_gen)}")
-        Label.reset_id()
+    # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]  # solved by StringAlgo
+    # planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]  # solved by StringAlgo
+    planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]  # solved by StringAlgo
+
+    lengths_and_counts = [6, 7, 8, 9]
+    for jump_length in lengths_and_counts:
+        log.info(f"trying to get jumps of length {jump_length}")
+        run(planet_nums, jump_length)
+        log.info(f"num labels: {next(StringLabel._id_gen)}")
+        StringLabel.reset_id()
 
 
 if __name__ == '__main__':
