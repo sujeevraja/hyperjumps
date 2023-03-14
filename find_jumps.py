@@ -387,7 +387,8 @@ def main():
 
     # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]  # solved by StringAlgo
     # planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]  # solved by StringAlgo
-    planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]  # solved by StringAlgo
+    # planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]  # solved by StringAlgo
+    planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]  # solved by StringAlgo
 
     lengths_and_counts = [6, 7, 8, 9]
     for jump_length in lengths_and_counts:
