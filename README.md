@@ -1,6 +1,8 @@
 # hyperjumps
 
-A repo to play around with algorithms for the Hyperjumps from Quanta magazine.
+A repo to find solutions to the
+[Hyperjumps!](https://hyperjumps.quantamagazine.org/) game from
+[Quanta magazine](https://www.quantamagazine.org/).
 
 
 ## Usage
