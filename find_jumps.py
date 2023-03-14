@@ -158,7 +158,7 @@ def algo1(planet_nums: typing.List[int], jump_length: int):
 class StringLabel:
     _id_gen = itertools.count()
 
-    def __init__(self, seq: str, nums_left: str):
+    def __init__(self, seq: str, nums_left: typing.List[int]):
         self.id: int = next(self._id_gen)
         self.seq: str = seq
         self.nums_left: str = nums_left
@@ -178,6 +178,18 @@ class StringLabel:
     def reset_id(cls):
         cls._id_gen = itertools.count()
 
+    def extend(self, num_str: str) -> typing.Optional['StringLabel']:
+        """Prepone num_str to self.seq."""
+        nums = list(map(int, num_str))
+        nums_left = [n for n in self.nums_left]
+        for num in nums:
+            try:
+                nums_left.remove(num)
+            except ValueError:
+                return None
+
+        return StringLabel(f"{num_str}{self.seq}", nums_left)
+
 
 def build_initial_string_labels(
     planet_nums: typing.List[int]
@@ -187,7 +199,7 @@ def build_initial_string_labels(
         seq = f"{n}9"
         nums_left = [p for p in planet_nums]
         nums_left.remove(n)
-        sls.append(StringLabel(seq, ''.join(map(str, nums_left))))
+        sls.append(StringLabel(seq, nums_left))
 
     return sls
 
@@ -196,6 +208,15 @@ class StringAlgo:
     def __init__(self, planet_nums: typing.List[int], jump_length: int):
         self.planet_nums: typing.List[int] = planet_nums
         self.jump_length: int = jump_length
+        self._unique_nums = set(planet_nums)
+        self._num_counts = {}
+        for n in planet_nums:
+            self._num_counts[n] = self._num_counts.get(n, 0) + 1
+
+        # keys are of the form "ab" and values are single digits c such that
+        # (c <> a) % 10 == b for <> \in {+,-,*,/}.
+        self._cache1 = {
+        }
 
     def run(self):
         """
@@ -213,8 +234,38 @@ class StringAlgo:
         for label in build_initial_string_labels(self.planet_nums):
             heapq.heappush(h, label)
 
-        for sl in h:
-            log.info(sl)
+        while h:
+            sl = heapq.heappop(h)
+            for ext in self.extend1(sl):
+                heapq.heappush(h, ext)
+                log.info(f"adding {ext}")
+
+    def extend1(
+        self, sl: StringLabel
+    ) -> typing.Generator[StringLabel, None, None]:
+        """
+        Given a sequence starting with (ab...), find c such that ca -> b.
+        """
+        ab = sl.seq[:2]
+        if ab not in self._cache1:
+            self._update_cache1(ab)
+
+        for c in self._cache1[ab]:
+            ext = sl.extend(str(c))
+            if ext:
+                yield (ext)
+
+    def _update_cache1(self, ab: str):
+        a, b = map(int, ab)
+        candidates = []
+        for c in self._unique_nums:
+            if (c == a or c == b and self._num_counts[c] == 1):
+                continue
+
+            if can_reach(c, a, b):
+                candidates.append(c)
+
+        self._cache1[ab] = candidates
 
 
 def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
