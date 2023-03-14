@@ -54,7 +54,7 @@ def can_reach(p: int, q: int, r: int) -> bool:
     if (p+q) % 10 == r or (p*q) % 10 == r:
         return True
 
-    if p > q:
+    if p >= q:
         if ((p-q) % 10) == r:
             return True
 
@@ -150,9 +150,6 @@ def algo1(planet_nums: typing.List[int], jump_length: int):
             else:
                 heapq.heappush(h, ext)
                 seq = list(reversed(ext.seq))
-                # 8312369
-                # if seq == [3, 1, 2, 3, 6, 9]:
-                #     log.info(f"adding {ext}")
 
 
 class StringLabel:
@@ -263,8 +260,9 @@ class StringAlgo:
         """
         a, b = map(int, ab)
         candidates = []
+
         for c in self._unique_nums:
-            if (c == a or c == b and self._num_counts[c] == 1):
+            if ((c == a or c == b) and self._num_counts[c] == 1):
                 continue
 
             if can_reach(c, a, b):
