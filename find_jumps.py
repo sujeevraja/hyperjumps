@@ -71,79 +71,27 @@ def can_reach(p: int, q: int, r: int) -> bool:
 
 class FindJumps:
     """
-    Create a sequence of single-digit numbers with the following rules:
-    - The first 2 elements of the sequence should be from `planet_nums`.
-    - The sequence should end with 9.
-    - The length of the sequence should be `jump_length`.
+    Algorithm to find trips of specific length using a given list of
+    single-digit numbers.
+
+    Rules to create a trip:
+    - All numbers in the trip should be in the given list of numbers, except
+        the last one, which should be 9.
+    - The first 2 numbers can be any pair.
     - Starting from the third element, each number should be the ones digit of
         adding, subtracting, multiplying or dividing the previous 2 numbers.
-    - Consider a sequence like a_1, a_2, a_3, ... a_k in which a_i is a single
-        digit. a_{k+1} can be generated as the ones digit of a_{k-1} <> a_k
-        where <> can be any of (add, subtract, multiply or divide).
-    - a_{k+1} can also be generated as b <> _k where b is formed by
-        selecting a continuous subsequence starting at a_m for 1 <= m < k
-        partitining it into (a_m,...,a_n), (a_{n+1},...,a_k) and concatenating
-        these 2 sub-sequences to create the multi-digit numbers b and c.
-    - In other words, if you're trying a new number z for the sequence by doing
-        x <> y, then y must be a single digit but x can be multiple digits.
+    - Consider a trip like (...a,b,c,d,...) in which a,b,c,d are single digits.
+        The d can be generated as the ones digit of b <> c where <> is
+        (+ mod 10, - if valid, * mod 10, / if c divides b). We can also
+        generate d by concatenating a and b into the 2-digit number ab and then
+        using (ab - c) or (ab // c if c divides ab).
 
     Examples
     --------
-    input: [4,5,1,2,7,3,3,6]
-    sequences:
-        [4,1,3,3,6,9] (4+1=3, 1*3=3, 3+3=6, 3+6=9)
-        [4,3,1,2,3,9] (4-3=1, 3-1=2, 1+2=3, 12-3=9)
-        [3,3,1,4,5,9] (3/3=1, 3+1=4, 1+4=5, 4+5=9)
-
-        The 4,3,1,2,3,9 case is an interesting example.
-        It needs 1+2=3 and 12-3=9 to hold. How to capture this in a graph?
-        Say my graph has x -- (y) --> d if x<>y == d.
-        Then, the graph would have 1 --(+2)--> 3 and (12) --(-3)--> 9.
-        What should the graph store?
-
-        Let's try the simple approach in which nodes are digits, edges are
-        operators (+,-,*,/,==).
-
-        1 -(+)-> 2 --(==)--> 3
-        12 --(-)--> 3 --(==)--> 9
-
-        Nah, too complicated.
-
-        Say we go backwards from 9.
-        We need to find pairs like x,y such that
-            x-y == 9, x+y == 9, x*y == 9, x/y == 9, or
-            x == 9+y, x == 9-y, x == 9/y, x == 9*y.
-            If x has 2 digits (say ab), then there is the additional constraint
-            that a<>b == y.
-
-        Perhaps we don't need to build the graph at all.
-        Start with a DFS going backwards from 9, with edges just meaning that
-        we can get to a digit.
-
-    Valid sequence examples:
-        Label(15,[9, 3, 2, 1, 3, 4],[5, 7, 6])
-        Label(20,[9, 3, 3, 1, 4, 5],[2, 7, 6])
-        Label(27,[9, 4, 3, 1, 2, 3],[5, 7, 6])
-        Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
-
-
-    UPDATE: These are found by the latest algo. They weren't found by the
-    previous version of the algo.
-    For the sequence [1, 2, 3, 3, 4, 4, 6, 8], here are the results for this
-    algo:
-    # 441339 (found)
-    # 312369 (found)
-    # 413369 (found)
-    # 431239 (found)
-    # 4413369 (found)
-    # 8441339 (found)
-    # 8312369 (not found)
-    # 84413369 (found)
-    # 68441339 (not found)
-    # 286441339 (not found)
-
-    Issue can be illustrated with 8312369. When we backtrack from (3,1...), we
-    can't figure out that 8 can added to the front as 8+3 == 11.
+    valid trips for [4,5,1,2,7,3,3,6]:
+        413369 (4+1=3, 1*3=3, 3+3=6, 3+6=9)
+        331459 (3/3=1, 3+1=4, 1+4=5, 4+5=9)
+        431239 (4-3=1, 3-1=2, 1+2=3, 12-3=9)
     """
 
     def __init__(self, planet_nums: typing.List[int]):
@@ -161,7 +109,7 @@ class FindJumps:
         # cd such that c <> d == a and (cd - a == b) or (cd / a) == b.
         self._cache2 = {}
 
-    def run(self, jump_lengths: typing.List[int]):
+    def run(self, jump_lengths=[6, 7, 8, 9]) -> typing.Dict[int, typing.List[str]]:
         """
         Given a digit seq like (ab...), look for the following:
 
@@ -189,12 +137,8 @@ class FindJumps:
                     jumps_by_length[len(ext.seq)].add(ext.seq)
                 heapq.heappush(h, ext)
 
-        for length, jumps in jumps_by_length.items():
-            log.info(f"jumps of length {length}")
-            for jump in jumps:
-                log.info(f"\t{jump}")
-
         log.info(f"num labels: {next(Label._id_gen)}")
+        return jumps_by_length
 
     def _extend1(self, label: Label) -> typing.Generator[Label, None, None]:
         """
@@ -272,8 +216,11 @@ def main():
     # planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]
     # planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]
     planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]
-    jump_lengths = [6, 7, 8, 9]
-    FindJumps(planet_nums).run(jump_lengths)
+    jumps_by_length = FindJumps(planet_nums).run()
+    for length, jumps in jumps_by_length.items():
+        log.info(f"jumps of length {length}")
+        for jump in jumps:
+            log.info(f"\t{jump}")
 
 
 if __name__ == '__main__':
