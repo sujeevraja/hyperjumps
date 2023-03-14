@@ -3,156 +3,12 @@
 import heapq
 import itertools
 import logging
-import operator
 import typing
 
 log = logging.getLogger(__name__)
 
 
 class Label:
-    _id_gen = itertools.count()
-
-    def __init__(self, seq: typing.List[int], nums_left: typing.List[int]):
-        self.id: int = next(self._id_gen)
-        self.seq: typing.List[int] = seq
-        self.nums_left: typing.List[int] = nums_left
-
-    def __lt__(self, other: 'Label') -> bool:
-        """This operator serves to prioritize label in a min-priority-queue."""
-        # Labels with longer sequences should be better.
-        if len(self.seq) != len(other.seq):
-            return len(self.seq) > len(other.seq)
-
-        return self.id < other.id
-
-    def __repr__(self) -> str:
-        return f"Label({self.id},{self.seq},{self.nums_left})"
-
-    @classmethod
-    def reset_id(cls):
-        cls._id_gen = itertools.count()
-
-
-def extend(label: Label, nums: typing.List[int]) -> typing.Optional[Label]:
-    seq = [s for s in label.seq]
-    left = [l for l in label.nums_left]
-
-    for num in nums:
-        seq.append(num)
-
-        # This exception handling ensures that we don't consider removing too
-        # many copies of a number as valid.
-        try:
-            left.remove(num)
-        except ValueError:
-            return None
-
-    return Label(seq=seq, nums_left=left)
-
-
-def can_reach(p: int, q: int, r: int) -> bool:
-    if (p+q) % 10 == r or (p*q) % 10 == r:
-        return True
-
-    if p >= q:
-        if ((p-q) % 10) == r:
-            return True
-
-        if p % q == 0 and p // q == r:
-            return True
-
-    return False
-
-
-def extensions(label: Label) -> typing.Generator[Label, None, None]:
-    oprs = [operator.add, operator.sub, operator.mul, operator.floordiv]
-    x = label.seq[-2]
-    y = label.seq[-1]
-
-    for opr in oprs:
-        z = opr(x, y)
-        if z <= 9:
-            if z in label.nums_left:
-                ext = extend(label, [z])
-                if ext:
-                    yield (ext)
-            continue
-
-        # Yes, there is a betteer way to do this with divs and mods. But
-        # I'm using this as a hack to get to finding jumps quickly.
-        digits = list(map(int, str(z)))
-
-        # Let's ignore (3 or more)-digit cases for now as they seem be be
-        # quite rare.
-        if len(digits) > 2:
-            continue
-
-        # Ensure that all digits of the multi-digit result are valid.
-        if any([d not in label.nums_left for d in digits]):
-            continue
-
-        a, b = digits
-
-        # For example, if we want to use 9+3 == 12, then, all digits 3,1,2
-        # should be valid. Further, as we did 9 <> 3 to get to 12, we
-        # should also check that 3 <> 2 == 1.
-        # Here, the label's sequence may look like [...,x,y] with x<>y == z and
-        # z is a 2-digit number ab. We want a<>b == y and (ab)<>y == x. The
-        # second condition is guaranteed by symmetry of (+,-) and (*,/). The
-        # first condition needs to be checked here.
-        if can_reach(a, b, y):
-            ext = extend(label, [b, a])
-            if ext:
-                yield (ext)
-
-
-def build_initial_labels(planet_nums: typing.List[int]) -> typing.List[Label]:
-    labels = []
-    first_label = Label(seq=[9], nums_left=planet_nums)
-    for num in set(planet_nums):
-        labels.append(extend(first_label, [num]))
-    return labels
-
-
-def algo1(planet_nums: typing.List[int], jump_length: int):
-    """
-    For the sequence [1, 2, 3, 3, 4, 4, 6, 8], here are the results for this
-    algo:
-    # 441339 (found)
-    # 312369 (found)
-    # 413369 (found)
-    # 431239 (found)
-    # 4413369 (found)
-    # 8441339 (found)
-    # 8312369 (not found)
-    # 84413369 (found)
-    # 68441339 (not found)
-    # 286441339 (not found)
-
-    Issue can be illustrated with 8312369. When we backtrack from (3,1...), we
-    can't figure out that 8 can added to the front as 8+3 == 11.
-    """
-    labels = build_initial_labels(planet_nums)
-    h = []
-    for label in labels:
-        heapq.heappush(h, label)
-
-    built_seqs = []
-    while h:
-        label = heapq.heappop(h)
-        for ext in extensions(label):
-            if len(ext.seq) == jump_length:
-                seq = list(reversed(ext.seq))
-                if seq not in built_seqs:
-                    built_seqs.append(seq)
-                    seq_str = ''.join(map(str, seq))
-                    print(ext.id, seq_str)
-            else:
-                heapq.heappush(h, ext)
-                seq = list(reversed(ext.seq))
-
-
-class StringLabel:
     _id_gen = itertools.count()
 
     def __init__(self, seq: str, nums_left: typing.List[int]):
@@ -169,13 +25,13 @@ class StringLabel:
         return self.id < other.id
 
     def __repr__(self) -> str:
-        return f"SL({self.id},{self.seq},{self.nums_left})"
+        return f"Label({self.id},{self.seq},{self.nums_left})"
 
     @classmethod
     def reset_id(cls):
         cls._id_gen = itertools.count()
 
-    def extend(self, num_str: str) -> typing.Optional['StringLabel']:
+    def extend(self, num_str: str) -> typing.Optional['Label']:
         """Prepone num_str to self.seq."""
         nums = list(map(int, num_str))
         nums_left = [n for n in self.nums_left]
@@ -185,142 +41,35 @@ class StringLabel:
             except ValueError:
                 return None
 
-        return StringLabel(f"{num_str}{self.seq}", nums_left)
+        return Label(f"{num_str}{self.seq}", nums_left)
 
 
-def build_initial_string_labels(
-    planet_nums: typing.List[int]
-) -> typing.List[StringLabel]:
-    sls = []
-    for n in set(planet_nums):
+def build_initial_labels(nums: typing.List[int]) -> typing.List[Label]:
+    labels = []
+    for n in set(nums):
         seq = f"{n}9"
-        nums_left = [p for p in planet_nums]
+        nums_left = [p for p in nums]
         nums_left.remove(n)
-        sls.append(StringLabel(seq, nums_left))
+        labels.append(Label(seq, nums_left))
 
-    return sls
-
-
-class StringAlgo:
-    def __init__(self, planet_nums: typing.List[int]):
-        self.planet_nums: typing.List[int] = planet_nums
-        self._unique_nums = set(planet_nums)
-        self._num_counts = {}
-        for n in planet_nums:
-            self._num_counts[n] = self._num_counts.get(n, 0) + 1
-
-        # keys are of the form "ab" and values are single digits c such that
-        # (c <> a) % 10 == b for <> \in {+,-,*,/}.
-        self._cache1 = {}
-
-        # keys are of the form "ab" and values are 2-digit strings of the form
-        # cd such that c <> d == a and (cd - a == b) or (cd / a) == b.
-        self._cache2 = {}
-
-    def run(self, jump_lengths: typing.List[int]):
-        """
-        Given a digit seq like (ab...), look for the following:
-
-        case 1: ca -> b (e.g. 63 -> 9)
-        case 2: cd -> a, cd - a -> b (e.g. 12 -> 3 -> 9)
-        case 3: cd -> a, cd / a -> b (e.g. 12 -> 3 -> 4)
-
-        Let's stick to just 2-digit numbers for now. Note that the case
-        dc -> a, ca -> b is covered by case 1; we would find ca -> b, then
-        extend the label in the next iteration by finding dc -> a.
-        """
-        h = []
-        for label in build_initial_string_labels(self.planet_nums):
-            heapq.heappush(h, label)
-
-        jumps_by_length = {l: set() for l in jump_lengths}
-        while h:
-            sl = heapq.heappop(h)
-            for ext in self._extend1(sl):
-                if len(ext.seq) in jumps_by_length:
-                    jumps_by_length[len(ext.seq)].add(ext.seq)
-                heapq.heappush(h, ext)
-            for ext in self._extend2(sl):
-                if len(ext.seq) in jumps_by_length:
-                    jumps_by_length[len(ext.seq)].add(ext.seq)
-                heapq.heappush(h, ext)
-
-        for length, jumps in jumps_by_length.items():
-            log.info(f"jumps of length {length}")
-            for jump in jumps:
-                log.info(f"\t{jump}")
-
-        log.info(f"num labels: {next(StringLabel._id_gen)}")
-
-    def _extend1(self, sl: StringLabel) -> typing.Generator[StringLabel, None, None]:
-        """
-        Given a sequence starting with (ab...), find c such that ca -> b.
-        """
-        ab = sl.seq[:2]
-        if ab not in self._cache1:
-            self._update_cache1(ab)
-
-        for c in self._cache1[ab]:
-            ext = sl.extend(str(c))
-            if ext:
-                yield ext
-
-    def _update_cache1(self, ab: str):
-        """
-        Given a sequence starting with (ab...), find c such that ca -> b.
-        """
-        a, b = map(int, ab)
-        candidates = []
-
-        for c in self._unique_nums:
-            if ((c == a or c == b) and self._num_counts[c] == 1):
-                continue
-
-            if can_reach(c, a, b):
-                candidates.append(c)
-
-        self._cache1[ab] = candidates
-
-    def _extend2(self, sl: StringLabel) -> typing.Generator[StringLabel, None, None]:
-        """
-        Given a sequence starting with (ab...), find cd such that
-         c <> d == a and (cd - a == b or cd / a == b).
-        """
-        ab = sl.seq[:2]
-        if ab not in self._cache2:
-            self._update_cache2(ab)
-
-        for cd in self._cache2[ab]:
-            ext = sl.extend(cd)
-            if ext:
-                yield ext
-
-    def _update_cache2(self, ab: str):
-        a, b = map(int, ab)
-
-        # First find cd such that c <> d == a.
-        # Look for entries of (d,a) in self._cache1.
-        nums = [n for n in self.planet_nums]
-        nums.remove(a)
-        if b != 9:
-            nums.remove(b)
-
-        candidates = []
-        for d in nums:
-            da = f"{d}{a}"
-            if da not in self._cache1:
-                self._update_cache1(da)
-
-            # Look for cd such that cd - a == b or cd // a == b.
-            for c in self._cache1[da]:
-                cd = (10*c) + d
-                if ((cd - a) % 10 == b) or (cd % a == 0 and cd // a == b):
-                    candidates.append(str(cd))
-
-        self._cache2[ab] = candidates
+    return labels
 
 
-def run(planet_nums: typing.List[int], jump_lengths: typing.List[int]):
+def can_reach(p: int, q: int, r: int) -> bool:
+    if (p+q) % 10 == r or (p*q) % 10 == r:
+        return True
+
+    if p >= q:
+        if ((p-q) % 10) == r:
+            return True
+
+        if p % q == 0 and p // q == r:
+            return True
+
+    return False
+
+
+class FindJumps:
     """
     Create a sequence of single-digit numbers with the following rules:
     - The first 2 elements of the sequence should be from `planet_nums`.
@@ -376,9 +125,143 @@ def run(planet_nums: typing.List[int], jump_lengths: typing.List[int]):
         Label(20,[9, 3, 3, 1, 4, 5],[2, 7, 6])
         Label(27,[9, 4, 3, 1, 2, 3],[5, 7, 6])
         Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
+
+
+    UPDATE: These are found by the latest algo. They weren't found by the
+    previous version of the algo.
+    For the sequence [1, 2, 3, 3, 4, 4, 6, 8], here are the results for this
+    algo:
+    # 441339 (found)
+    # 312369 (found)
+    # 413369 (found)
+    # 431239 (found)
+    # 4413369 (found)
+    # 8441339 (found)
+    # 8312369 (not found)
+    # 84413369 (found)
+    # 68441339 (not found)
+    # 286441339 (not found)
+
+    Issue can be illustrated with 8312369. When we backtrack from (3,1...), we
+    can't figure out that 8 can added to the front as 8+3 == 11.
     """
-    # algo1(planet_nums, jump_length)
-    StringAlgo(planet_nums).run(jump_lengths)
+
+    def __init__(self, planet_nums: typing.List[int]):
+        self.planet_nums: typing.List[int] = planet_nums
+        self._unique_nums = set(planet_nums)
+        self._num_counts = {}
+        for n in planet_nums:
+            self._num_counts[n] = self._num_counts.get(n, 0) + 1
+
+        # keys are of the form "ab" and values are single digits c such that
+        # (c <> a) % 10 == b for <> \in {+,-,*,/}.
+        self._cache1 = {}
+
+        # keys are of the form "ab" and values are 2-digit strings of the form
+        # cd such that c <> d == a and (cd - a == b) or (cd / a) == b.
+        self._cache2 = {}
+
+    def run(self, jump_lengths: typing.List[int]):
+        """
+        Given a digit seq like (ab...), look for the following:
+
+        case 1: ca -> b (e.g. 63 -> 9)
+        case 2: cd -> a, cd - a -> b (e.g. 12 -> 3 -> 9)
+        case 3: cd -> a, cd / a -> b (e.g. 12 -> 3 -> 4)
+
+        Let's stick to just 2-digit numbers for now. Note that the case
+        dc -> a, ca -> b is covered by case 1; we would find ca -> b, then
+        extend the label in the next iteration by finding dc -> a.
+        """
+        h = []
+        for label in build_initial_labels(self.planet_nums):
+            heapq.heappush(h, label)
+
+        jumps_by_length = {l: set() for l in jump_lengths}
+        while h:
+            label = heapq.heappop(h)
+            for ext in self._extend1(label):
+                if len(ext.seq) in jumps_by_length:
+                    jumps_by_length[len(ext.seq)].add(ext.seq)
+                heapq.heappush(h, ext)
+            for ext in self._extend2(label):
+                if len(ext.seq) in jumps_by_length:
+                    jumps_by_length[len(ext.seq)].add(ext.seq)
+                heapq.heappush(h, ext)
+
+        for length, jumps in jumps_by_length.items():
+            log.info(f"jumps of length {length}")
+            for jump in jumps:
+                log.info(f"\t{jump}")
+
+        log.info(f"num labels: {next(Label._id_gen)}")
+
+    def _extend1(self, label: Label) -> typing.Generator[Label, None, None]:
+        """
+        Given a sequence starting with (ab...), find c such that ca -> b.
+        """
+        ab = label.seq[:2]
+        if ab not in self._cache1:
+            self._update_cache1(ab)
+
+        for c in self._cache1[ab]:
+            ext = label.extend(str(c))
+            if ext:
+                yield ext
+
+    def _update_cache1(self, ab: str):
+        """
+        Given a sequence starting with (ab...), find c such that ca -> b.
+        """
+        a, b = map(int, ab)
+        candidates = []
+
+        for c in self._unique_nums:
+            if ((c == a or c == b) and self._num_counts[c] == 1):
+                continue
+
+            if can_reach(c, a, b):
+                candidates.append(c)
+
+        self._cache1[ab] = candidates
+
+    def _extend2(self, label: Label) -> typing.Generator[Label, None, None]:
+        """
+        Given a sequence starting with (ab...), find cd such that
+         c <> d == a and (cd - a == b or cd / a == b).
+        """
+        ab = label.seq[:2]
+        if ab not in self._cache2:
+            self._update_cache2(ab)
+
+        for cd in self._cache2[ab]:
+            ext = label.extend(cd)
+            if ext:
+                yield ext
+
+    def _update_cache2(self, ab: str):
+        a, b = map(int, ab)
+
+        # First find cd such that c <> d == a.
+        # Look for entries of (d,a) in self._cache1.
+        nums = [n for n in self.planet_nums]
+        nums.remove(a)
+        if b != 9:
+            nums.remove(b)
+
+        candidates = []
+        for d in nums:
+            da = f"{d}{a}"
+            if da not in self._cache1:
+                self._update_cache1(da)
+
+            # Look for cd such that cd - a == b or cd // a == b.
+            for c in self._cache1[da]:
+                cd = (10*c) + d
+                if ((cd - a) % 10 == b) or (cd % a == 0 and cd // a == b):
+                    candidates.append(str(cd))
+
+        self._cache2[ab] = candidates
 
 
 def main():
@@ -390,7 +273,7 @@ def main():
     # planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]
     planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]
     jump_lengths = [6, 7, 8, 9]
-    run(planet_nums, jump_lengths)
+    FindJumps(planet_nums).run(jump_lengths)
 
 
 if __name__ == '__main__':
