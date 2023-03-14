@@ -155,6 +155,68 @@ def algo1(planet_nums: typing.List[int], jump_length: int):
                 #     log.info(f"adding {ext}")
 
 
+class StringLabel:
+    _id_gen = itertools.count()
+
+    def __init__(self, seq: str, nums_left: str):
+        self.id: int = next(self._id_gen)
+        self.seq: str = seq
+        self.nums_left: str = nums_left
+
+    def __lt__(self, other: 'Label') -> bool:
+        """This operator serves to prioritize label in a min-priority-queue."""
+        # Labels with longer sequences should be better.
+        if len(self.seq) != len(other.seq):
+            return len(self.seq) > len(other.seq)
+
+        return self.id < other.id
+
+    def __repr__(self) -> str:
+        return f"SL({self.id},{self.seq},{self.nums_left})"
+
+    @classmethod
+    def reset_id(cls):
+        cls._id_gen = itertools.count()
+
+
+def build_initial_string_labels(
+    planet_nums: typing.List[int]
+) -> typing.List[StringLabel]:
+    sls = []
+    for n in set(planet_nums):
+        seq = f"{n}9"
+        nums_left = [p for p in planet_nums]
+        nums_left.remove(n)
+        sls.append(StringLabel(seq, ''.join(map(str, nums_left))))
+
+    return sls
+
+
+class StringAlgo:
+    def __init__(self, planet_nums: typing.List[int], jump_length: int):
+        self.planet_nums: typing.List[int] = planet_nums
+        self.jump_length: int = jump_length
+
+    def run(self):
+        """
+        Given a digit seq like (ab...), look for the following:
+
+        case 1: ca -> b (e.g. 63 -> 9)
+        case 2: cd -> a, cd - a -> b (e.g. 12 -> 3 -> 9)
+        case 3: cd -> a, cd / a -> b (e.g. 12 -> 3 -> 4)
+
+        Let's stick to just 2-digit numbers for now. Note that the case
+        dc -> a, ca -> b is covered by case 1; we would find ca -> b, then
+        extend the label in the next iteration by finding dc -> a.
+        """
+        h = []
+        for label in build_initial_string_labels(self.planet_nums):
+            heapq.heappush(h, label)
+
+        for sl in h:
+            log.info(sl)
+
+
 def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
     """
     Create a sequence of single-digit numbers with the following rules:
@@ -212,7 +274,8 @@ def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
         Label(27,[9, 4, 3, 1, 2, 3],[5, 7, 6])
         Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
     """
-    algo1(planet_nums, jump_length)
+    # algo1(planet_nums, jump_length)
+    StringAlgo(planet_nums, jump_length).run()
 
 
 def main():
