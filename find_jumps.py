@@ -218,7 +218,7 @@ def main():
     planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]
     jumps_by_length = FindJumps(planet_nums).run()
     for length, jumps in jumps_by_length.items():
-        log.info(f"jumps of length {length}")
+        log.info(f"{len(jumps)} jumps of length {length}:")
         for jump in jumps:
             log.info(f"\t{jump}")
 
