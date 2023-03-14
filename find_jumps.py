@@ -215,8 +215,11 @@ class StringAlgo:
 
         # keys are of the form "ab" and values are single digits c such that
         # (c <> a) % 10 == b for <> \in {+,-,*,/}.
-        self._cache1 = {
-        }
+        self._cache1 = {}
+
+        # keys are of the form "ab" and values are 2-digit strings of the form
+        # cd such that c <> d == a and (cd - a == b) or (cd / a) == b.
+        self._cache2 = {}
 
     def run(self):
         """
@@ -236,13 +239,12 @@ class StringAlgo:
 
         while h:
             sl = heapq.heappop(h)
-            for ext in self.extend1(sl):
+            for ext in self._extend1(sl):
                 heapq.heappush(h, ext)
-                log.info(f"adding {ext}")
+            for ext in self._extend2(sl):
+                heapq.heappush(h, ext)
 
-    def extend1(
-        self, sl: StringLabel
-    ) -> typing.Generator[StringLabel, None, None]:
+    def _extend1(self, sl: StringLabel) -> typing.Generator[StringLabel, None, None]:
         """
         Given a sequence starting with (ab...), find c such that ca -> b.
         """
@@ -253,9 +255,12 @@ class StringAlgo:
         for c in self._cache1[ab]:
             ext = sl.extend(str(c))
             if ext:
-                yield (ext)
+                yield ext
 
     def _update_cache1(self, ab: str):
+        """
+        Given a sequence starting with (ab...), find c such that ca -> b.
+        """
         a, b = map(int, ab)
         candidates = []
         for c in self._unique_nums:
@@ -266,6 +271,44 @@ class StringAlgo:
                 candidates.append(c)
 
         self._cache1[ab] = candidates
+
+    def _extend2(self, sl: StringLabel) -> typing.Generator[StringLabel, None, None]:
+        """
+        Given a sequence starting with (ab...), find cd such that
+         c <> d == a and (cd - a == b or cd / a == b).
+        """
+        ab = sl.seq[:2]
+        if ab not in self._cache2:
+            self._update_cache2(ab)
+
+        for cd in self._cache2[ab]:
+            ext = sl.extend(cd)
+            if ext:
+                yield ext
+
+    def _update_cache2(self, ab: str):
+        a, b = map(int, ab)
+
+        # First find cd such that c <> d == a.
+        # Look for entries of (d,a) in self._cache1.
+        nums = [n for n in self.planet_nums]
+        nums.remove(a)
+        if b != 9:
+            nums.remove(b)
+
+        candidates = []
+        for d in nums:
+            da = f"{d}{a}"
+            if da not in self._cache1:
+                self._update_cache1(da)
+
+            # Look for cd such that cd - a == b or cd // a == b.
+            for c in self._cache1[da]:
+                cd = (10*c) + d
+                if ((cd - a) % 10 == b) or (cd % a == 0 and cd // a == b):
+                    candidates.append(str(cd))
+
+        self._cache2[ab] = candidates
 
 
 def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
