@@ -114,6 +114,47 @@ def build_initial_labels(planet_nums: typing.List[int]) -> typing.List[Label]:
     return labels
 
 
+def algo1(planet_nums: typing.List[int], jump_length: int):
+    """
+    For the sequence [1, 2, 3, 3, 4, 4, 6, 8], here are the results for this
+    algo:
+    # 441339 (found)
+    # 312369 (found)
+    # 413369 (found)
+    # 431239 (found)
+    # 4413369 (found)
+    # 8441339 (found)
+    # 8312369 (not found)
+    # 84413369 (found)
+    # 68441339 (not found)
+    # 286441339 (not found)
+
+    Issue can be illustrated with 8312369. When we backtrack from (3,1...), we
+    can't figure out that 8 can added to the front as 8+3 == 11.
+    """
+    labels = build_initial_labels(planet_nums)
+    h = []
+    for label in labels:
+        heapq.heappush(h, label)
+
+    built_seqs = []
+    while h:
+        label = heapq.heappop(h)
+        for ext in extensions(label):
+            if len(ext.seq) == jump_length:
+                seq = list(reversed(ext.seq))
+                if seq not in built_seqs:
+                    built_seqs.append(seq)
+                    seq_str = ''.join(map(str, seq))
+                    print(ext.id, seq_str)
+            else:
+                heapq.heappush(h, ext)
+                seq = list(reversed(ext.seq))
+                # 8312369
+                # if seq == [3, 1, 2, 3, 6, 9]:
+                #     log.info(f"adding {ext}")
+
+
 def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
     """
     Create a sequence of single-digit numbers with the following rules:
@@ -125,10 +166,12 @@ def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
     - Consider a sequence like a_1, a_2, a_3, ... a_k in which a_i is a single
         digit. a_{k+1} can be generated as the ones digit of a_{k-1} <> a_k
         where <> can be any of (add, subtract, multiply or divide).
-    - a_{k+1} can also be generated as b <> c where b and c are formed by
+    - a_{k+1} can also be generated as b <> _k where b is formed by
         selecting a continuous subsequence starting at a_m for 1 <= m < k
         partitining it into (a_m,...,a_n), (a_{n+1},...,a_k) and concatenating
         these 2 sub-sequences to create the multi-digit numbers b and c.
+    - In other words, if you're trying a new number z for the sequence by doing
+        x <> y, then y must be a single digit but x can be multiple digits.
 
     Examples
     --------
@@ -168,29 +211,8 @@ def run(planet_nums: typing.List[int], jump_length: int, num_seqs: int):
         Label(20,[9, 3, 3, 1, 4, 5],[2, 7, 6])
         Label(27,[9, 4, 3, 1, 2, 3],[5, 7, 6])
         Label(33,[9, 5, 4, 1, 3, 3],[2, 7, 6])
-
     """
-    labels = build_initial_labels(planet_nums)
-    h = []
-    for label in labels:
-        heapq.heappush(h, label)
-
-    count = 0
-    built_seqs = []
-    while h:
-        label = heapq.heappop(h)
-        for ext in extensions(label):
-            if len(ext.seq) == jump_length:
-                seq = list(reversed(ext.seq))
-                if seq not in built_seqs:
-                    built_seqs.append(seq)
-                    print(ext.id, seq)
-                    count += 1
-                    if count >= num_seqs:
-                        log.info("stopping")
-                        return
-            else:
-                heapq.heappush(h, ext)
+    algo1(planet_nums, jump_length)
 
 
 def main():
