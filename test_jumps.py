@@ -18,7 +18,7 @@ class TestJumps(unittest.TestCase):
     def test_jump_seq_1(self):
         """This case was found online. Trips in this problem helped rebuild and
         refine the algorithm."""
-        trips_by_length = fj.FindJumps([1, 2, 3, 3, 4, 4, 6, 8]).run()
+        trips_by_length = fj.find_trips([1, 2, 3, 3, 4, 4, 6, 8])
         for trip in ["441339", "312369", "413369", "431239"]:
             self.assertTrue(trip in trips_by_length[6])
 
