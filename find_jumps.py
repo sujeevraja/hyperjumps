@@ -14,9 +14,11 @@ class Config(typing.NamedTuple):
 
     Attributes:
         nums: numbers from which sequence is to be generated.
+        trip_lengths: lengths of trips to be found.
         limit_trips: whether all or a few trips should be generated.
     """
     nums: typing.List[int]
+    trip_lengths: typing.List[int]
     limit_trips: bool
 
 
@@ -236,7 +238,7 @@ def find_trips(
 
 
 def run(cfg: Config):
-    trips_by_length = find_trips(cfg.nums)
+    trips_by_length = find_trips(cfg.nums, cfg.trip_lengths)
     for length, trips in trips_by_length.items():
         log.info(f"{len(trips)} jumps of length {length}")
         if cfg.limit_trips:
@@ -252,15 +254,24 @@ def handle_command_line():
     # default_nums = "87748138"
     # default_nums = "45127336"
     # default_nums = "12334468"
-    default_nums = "71833814"
+    # default_nums = "71833814"
+    default_nums = "71818743"
     parser.add_argument("-n", "--nums", type=str, default=default_nums,
                         help="digits from which trips are to be found")
+
+    default_trip_lengths = [6, 7, 8, 9]
+    parser.add_argument("-t", "--trip_lengths", type=int, nargs='+',
+                        default=default_trip_lengths,
+                        help="lenths of trips to find")
 
     parser.add_argument("-l", "--limit", action="store_true",
                         help="limit number of sequences generated")
 
     args = parser.parse_args()
-    return Config(nums=[int(c) for c in args.nums], limit_trips=args.limit)
+    return Config(
+        nums=[int(c) for c in args.nums],
+        trip_lengths=args.trip_lengths,
+        limit_trips=args.limit)
 
 
 def main():
