@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import heapq
 import itertools
 import logging
 import typing
@@ -211,25 +210,25 @@ def find_trips(
     cache1 = compute_cab_cache(info)
     cache2 = compute_cdab_cache(info, cache1)
 
-    h = []
-    for label in build_initial_labels(nums):
-        heapq.heappush(h, label)
-
     jumps_by_length = {l: set() for l in jump_lengths}
-    while h:
-        label = heapq.heappop(h)
+    labels = build_initial_labels(nums)
+    for label in build_initial_labels(nums):
+        labels.append(label)
+
+    while labels:
+        label = labels.pop()
         ab: str = label.seq[:2]
         for c in cache1.get(ab, []):
             ext = label.extend(str(c))
             if ext:
-                heapq.heappush(h, ext)
+                labels.append(ext)
                 if len(ext.seq) in jumps_by_length:
                     jumps_by_length[len(ext.seq)].add(ext.seq)
 
         for cd in cache2.get(ab, []):
             ext = label.extend(cd)
             if ext:
-                heapq.heappush(h, ext)
+                labels.append(ext)
                 if len(ext.seq) in jumps_by_length:
                     jumps_by_length[len(ext.seq)].add(ext.seq)
 
