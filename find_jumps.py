@@ -1,11 +1,23 @@
 #!/usr/bin/env python
 
+import argparse
 import heapq
 import itertools
 import logging
 import typing
 
 log = logging.getLogger(__name__)
+
+
+class Config(typing.NamedTuple):
+    """Script configuration.
+
+    Attributes:
+        nums: numbers from which sequence is to be generated.
+        limit_trips: whether all or a few trips should be generated.
+    """
+    nums: typing.List[int]
+    limit_trips: bool
 
 
 class Label:
@@ -208,19 +220,40 @@ class FindJumps:
         self._cache2[ab] = candidates
 
 
+def run(cfg: Config):
+    trips_by_length = FindJumps(cfg.nums).run()
+    for length, trips in trips_by_length.items():
+        log.info(f"{len(trips)} jumps of length {length}")
+        if cfg.limit_trips:
+            trips = list(trips)[:(10-length)]
+        for trip in trips:
+            log.info(f"\t{trip}")
+
+
+def handle_command_line():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    # default_nums = "87748138"
+    # default_nums = "45127336"
+    # default_nums = "12334468"
+    default_nums = "71833814"
+    parser.add_argument("-n", "--nums", type=str, default=default_nums,
+                        help="digits from which trips are to be found")
+
+    parser.add_argument("-l", "--limit", action="store_true",
+                        help="limit number of sequences generated")
+
+    args = parser.parse_args()
+    return Config(nums=[int(c) for c in args.nums], limit_trips=args.limit)
+
+
 def main():
     """Initialize logging and run the script."""
     logging.basicConfig(format='%(asctime)s %(levelname)s--: %(message)s',
                         level=logging.DEBUG)
-    # planet_nums = [8, 7, 7, 4, 8, 1, 3, 8]
-    # planet_nums = [4, 5, 1, 2, 7, 3, 3, 6]
-    # planet_nums = [1, 2, 3, 3, 4, 4, 6, 8]
-    planet_nums = [7, 1, 8, 3, 3, 8, 1, 4]
-    jumps_by_length = FindJumps(planet_nums).run()
-    for length, jumps in jumps_by_length.items():
-        log.info(f"{len(jumps)} jumps of length {length}:")
-        for jump in jumps:
-            log.info(f"\t{jump}")
+    cfg = handle_command_line()
+    run(cfg)
 
 
 if __name__ == '__main__':
