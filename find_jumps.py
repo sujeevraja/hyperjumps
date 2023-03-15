@@ -21,7 +21,7 @@ class Config(typing.NamedTuple):
     limit_trips: bool
 
 
-class Label:
+class Trip:
     _id_gen = itertools.count()
 
     def __init__(self, seq: str, nums_left: typing.List[int]):
@@ -29,23 +29,15 @@ class Label:
         self.seq: str = seq
         self.nums_left: str = nums_left
 
-    def __lt__(self, other: 'Label') -> bool:
-        """This operator serves to prioritize label in a min-priority-queue."""
-        # Labels with longer sequences should be better.
-        if len(self.seq) != len(other.seq):
-            return len(self.seq) > len(other.seq)
-
-        return self.id < other.id
-
     def __repr__(self) -> str:
-        return f"Label({self.id},{self.seq},{self.nums_left})"
+        return f"Trip({self.id},{self.seq},{self.nums_left})"
 
     @classmethod
     def reset_id(cls):
         cls._id_gen = itertools.count()
 
-    def extend(self, num_str: str) -> typing.Optional['Label']:
-        """Prepone num_str to self.seq."""
+    def prefix(self, num_str: str) -> typing.Optional['Trip']:
+        """Prefix num_str to self.seq."""
         nums = list(map(int, num_str))
         nums_left = [n for n in self.nums_left]
         for num in nums:
@@ -54,18 +46,17 @@ class Label:
             except ValueError:
                 return None
 
-        return Label(f"{num_str}{self.seq}", nums_left)
+        return Trip(f"{num_str}{self.seq}", nums_left)
 
 
-def build_initial_labels(nums: typing.List[int]) -> typing.List[Label]:
-    labels = []
+def build_initial_trips(nums: typing.List[int]) -> typing.List[Trip]:
+    trips = []
     for n in set(nums):
         seq = f"{n}9"
         nums_left = [p for p in nums]
         nums_left.remove(n)
-        labels.append(Label(seq, nums_left))
-
-    return labels
+        trips.append(Trip(seq, nums_left))
+    return trips
 
 
 def can_reach(p: int, q: int, r: int) -> bool:
@@ -180,6 +171,24 @@ def compute_cdab_cache(
     return cache
 
 
+def build_jump_cache(info: NumInfo) -> typing.Dict[str, typing.List[str]]:
+    cache1 = compute_cab_cache(info)
+    cache2 = compute_cdab_cache(info, cache1)
+    cache = {}
+    for ab, cs in cache1.items():
+        if ab not in cache:
+            cache[ab] = []
+        for c in cs:
+            cache[ab].append(str(c))
+
+    for ab, cds in cache2.items():
+        if ab not in cache:
+            cache[ab] = []
+        cache[ab].extend(cds)
+
+    return cache
+
+
 def find_trips(
         nums: typing.List[int],
         jump_lengths: typing.List[int] = [6, 7, 8, 9]
@@ -206,40 +215,34 @@ def find_trips(
             331459 (3/3=1, 3+1=4, 1+4=5, 4+5=9)
             431239 (4-3=1, 3-1=2, 1+2=3, 12-3=9)
     """
-    info = NumInfo.build(nums)
-    cache1 = compute_cab_cache(info)
-    cache2 = compute_cdab_cache(info, cache1)
+    cache = build_jump_cache(NumInfo.build(nums))
+    log.info("jump cache")
+    num_jumps = 0
+    for ab, jumps in cache.items():
+        log.info(f"\t{ab}: {jumps}")
+        num_jumps += len(jumps)
+    log.info(f"num jumps found: {num_jumps}")
 
-    jumps_by_length = {l: set() for l in jump_lengths}
-    labels = build_initial_labels(nums)
-    for label in build_initial_labels(nums):
-        labels.append(label)
-
-    while labels:
-        label = labels.pop()
-        ab: str = label.seq[:2]
-        for c in cache1.get(ab, []):
-            ext = label.extend(str(c))
+    trips_by_length = {l: set() for l in jump_lengths}
+    trips = build_initial_trips(nums)
+    while trips:
+        trip = trips.pop()
+        ab: str = trip.seq[:2]
+        for jump in cache.get(ab, []):
+            ext = trip.prefix(jump)
             if ext:
-                labels.append(ext)
-                if len(ext.seq) in jumps_by_length:
-                    jumps_by_length[len(ext.seq)].add(ext.seq)
+                trips.append(ext)
+                if len(ext.seq) in trips_by_length:
+                    trips_by_length[len(ext.seq)].add(ext.seq)
 
-        for cd in cache2.get(ab, []):
-            ext = label.extend(cd)
-            if ext:
-                labels.append(ext)
-                if len(ext.seq) in jumps_by_length:
-                    jumps_by_length[len(ext.seq)].add(ext.seq)
-
-    log.info(f"num labels: {next(Label._id_gen)}")
-    return jumps_by_length
+    log.info(f"num trips: {next(Trip._id_gen)}")
+    return trips_by_length
 
 
 def run(cfg: Config):
     trips_by_length = find_trips(cfg.nums, cfg.trip_lengths)
     for length, trips in trips_by_length.items():
-        log.info(f"{len(trips)} jumps of length {length}")
+        log.info(f"{len(trips)} trips of length {length}")
         if cfg.limit_trips:
             trips = list(trips)[:(10-length)]
         for trip in trips:
