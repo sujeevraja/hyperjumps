@@ -257,7 +257,8 @@ def handle_command_line():
     # default_nums = "45127336"
     # default_nums = "12334468"
     # default_nums = "71833814"
-    default_nums = "71818743"
+    # default_nums = "71818743"
+    default_nums = "44731185"
     parser.add_argument("-n", "--nums", type=str, default=default_nums,
                         help="digits from which trips are to be found")
 
