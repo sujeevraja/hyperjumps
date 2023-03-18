@@ -254,7 +254,7 @@ def handle_command_line():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     with open("planet_numbers.txt", "r") as infile:
-        default_nums = next(infile)
+        default_nums = next(infile).strip()
     parser.add_argument("-n", "--nums", type=str, default=default_nums,
                         help="digits from which trips are to be found")
 
