@@ -253,13 +253,8 @@ def handle_command_line():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    # default_nums = "87748138"
-    # default_nums = "45127336"
-    # default_nums = "12334468"
-    # default_nums = "71833814"
-    # default_nums = "71818743"
-    # default_nums = "44731185"
-    default_nums = "14643327"
+    with open("planet_numbers.txt", "r") as infile:
+        default_nums = next(infile)
     parser.add_argument("-n", "--nums", type=str, default=default_nums,
                         help="digits from which trips are to be found")
 
